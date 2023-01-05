@@ -15,7 +15,8 @@ fn main() {
             SystemSet::new()
                 .with_run_criteria(FixedTimestep::step(FPS as f64))
                 .with_system(player_movement_system)
-                .with_system(snap_to_player_system),
+                .with_system(snap_to_player_system)
+                .with_system(rotate_to_player_system),
         )
         .add_system(close_on_esc)
         .run();
@@ -131,7 +132,7 @@ fn player_movement_system(
     }
     // z eksenine göre döndürme faktörü, oyuncunun hızı ve delta time değerinleri kullanarak
     // oyuncu gemisine bir döndürme kazandırıyoruz
-    transform.rotate_z(rot_factor * p.vel * FPS);
+    transform.rotate_z(rot_factor * p.rot * FPS);
 
     //
     let movement_direction = transform.rotation * Vec3::Y;
@@ -167,5 +168,40 @@ fn snap_to_player_system(
         let rotate_to_player = Quat::from_rotation_arc(Vec3::Y, to_player.extend(0.));
         // ve düşman gemisini döndürülmesi sağlanıyor.
         e_transform.rotation = rotate_to_player;
+    }
+}
+
+// düşman gemilerinden RotateToPlayer davranışını içerenlerin
+// yüzlerini sürekli olarak oyuncunun olduğu tarafa dönmesini sağlayan sistem.
+// ilk sorgu ile RotateToPlayer ve Transform davranışlarına sahip oyun nesnelerini oyuncu haricinde
+// parametre olarak geçmekteyiz.
+// ikinci sorgu ise sadece Transform bileşenini barındıran oyuncu nesnesine odaklanıyor
+fn rotate_to_player_system(
+    mut query: Query<(&RotateToPlayer, &mut Transform), Without<Player>>,
+    player_query: Query<&Transform, With<Player>>,
+) {
+    // Oyuncu gemisinin güncel x,y bilgilerini(yani konumunu alıyoruz)
+    let player_transform = player_query.single();
+    let player_translation = player_transform.translation.xy();
+
+    // Şimdi sahada RotateToPlayer bileşeni içeren tüm nesneleri geziyoruz
+    for (rot_to_plyr, mut enemy_transform) in &mut query {
+        // Aşağıda nokta çarpım(Dot Product) kullanılarak,
+        let enemy_forward = (enemy_transform.rotation * Vec3::Y).xy();
+        let to_player = (player_translation - enemy_transform.translation.xy()).normalize();
+        let forward_dot_player = enemy_forward.dot(to_player);
+
+        // elde edilen skaler değerin pozitif olup olmadığına bakıyoruz.
+        // pozitif ise aynı yöne baktıklarına kanaat getirilip döngünün sonraki
+        // iterasyonuna atlayıp devam eden hesaplamaların boş yere yapılmasını engelliyoruz.
+        if (forward_dot_player - 1.0).abs() < f32::EPSILON {
+            continue;
+        }
+        let enemy_right = (enemy_transform.rotation * Vec3::X).xy();
+        let right_dot_player = enemy_right.dot(to_player);
+        let rotation_sign = -f32::copysign(1.0, right_dot_player);
+        let max_angle = forward_dot_player.clamp(-1.0, 1.0).acos();
+        let rotation_angle = rotation_sign * (rot_to_plyr.vel * FPS).min(max_angle);
+        enemy_transform.rotate_z(rotation_angle);
     }
 }
