@@ -5,7 +5,7 @@ use bevy::window::close_on_esc;
 use std::f32::consts::PI;
 
 const BOUNDS: Vec2 = Vec2::new(800., 600.);
-const FPS: f32 = 1. / 30.;
+const FPS: f32 = 1. / 60.;
 
 fn main() {
     App::new()
@@ -15,6 +15,7 @@ fn main() {
             SystemSet::new()
                 .with_run_criteria(FixedTimestep::step(FPS as f64))
                 .with_system(player_movement_system)
+                .with_system(snap_to_player_system),
         )
         .add_system(close_on_esc)
         .run();
@@ -59,7 +60,7 @@ fn setup_system(mut commands: Commands, asset_server: Res<AssetServer>) {
         },
         Player {
             vel: 500.,
-            rot: 360_f32.to_radians(),
+            rot: 2. * PI,
         },
     ));
 
@@ -72,7 +73,7 @@ fn setup_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             transform: Transform::from_xyz(0. - h_margin, 0., 0.),
             ..default()
         },
-        //SnapToPlayer,
+        SnapToPlayer,
     ));
     commands.spawn((
         SpriteBundle {
@@ -80,7 +81,7 @@ fn setup_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             transform: Transform::from_xyz(0., 0. - v_margin, 0.),
             ..default()
         },
-        //SnapToPlayer,
+        SnapToPlayer,
     ));
 
     // RotateToPlayer'a verilen radyan değerleri ile,
@@ -143,4 +144,28 @@ fn player_movement_system(
     let range = Vec3::from((BOUNDS / 2.0, 0.0));
     // oyuncunun pozisyonu min ve max değerlerine göre sınırlandırılıyor.
     transform.translation = transform.translation.min(range).max(-range);
+}
+
+// düşman gemilerinin oyuncuyu takip etmesine yarayan sistem
+// query ile SnapToPlayer bileşeni içeren entity'leri ele almaktayız. Bu sorguda Player hariç tutuluyor.
+// player_query'de ise sadece Player entity'si ele alınmakta.
+// Her iki parametre de oyun sahasında Transform bileşenine sahip olma kritierni aramakta tabii.
+fn snap_to_player_system(
+    mut query: Query<&mut Transform, (With<SnapToPlayer>, Without<Player>)>,
+    player_query: Query<&Transform, With<Player>>,
+) {
+    let player_transform = player_query.single();
+    // Oyuncunun x,y koordinatlarını alıyoruz
+    let player_translation = player_transform.translation.xy();
+
+    // Transform bileşeni olup SnapToPlayer davranışı içeren tüm düşman nesneleri dolaşılıyor
+    for mut e_transform in &mut query {
+        // Tipik olarak düşman gemisi ile oyuncu konumu arasındaki vektör bulunum normalizasyon
+        // işlemine tabii tutuluyor.
+        let to_player = (player_translation - e_transform.translation.xy()).normalize();
+        // Yukarıdaki birim vektörden yararlanılarak döndürme açısının hesaplanması sağlanıyor
+        let rotate_to_player = Quat::from_rotation_arc(Vec3::Y, to_player.extend(0.));
+        // ve düşman gemisini döndürülmesi sağlanıyor.
+        e_transform.rotation = rotate_to_player;
+    }
 }
