@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use bevy::time::FixedTimestep;
 use bevy::window::close_on_esc;
+use std::f32::consts::PI;
 
 const BOUNDS: Vec2 = Vec2::new(800., 600.);
 
@@ -33,9 +34,11 @@ struct RotateToPlayer {
 // kurulum işlemlerini yapan sistem fonksiyonu
 fn setup_system(mut commands: Commands, asset_server: Res<AssetServer>) {
     // oyunda kullanılan texture'lar asset_server ile yüklenir
-    //let enemy_a_texture = asset_server.load("enemy_A.png");
+    let enemy_a_texture = asset_server.load("enemy_A.png");
     let ship_texture = asset_server.load("ship_C.png");
-    //let enemy_b_texture = asset_server.load("enemy_B.png");
+    let enemy_b_texture = asset_server.load("enemy_B.png");
+
+    let (h_margin, v_margin) = (BOUNDS.x / 4., BOUNDS.y / 4.);
 
     // varsayılan ayarları ile 2D ortografik kamera hazırlanır
     commands.spawn(Camera2dBundle::default());
@@ -52,5 +55,45 @@ fn setup_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             vel: 500.,
             rot: 360_f32.to_radians(),
         },
+    ));
+
+    // enemy nesneleri ekleniyor.
+    // a ve b çizimlerinden birer tane eklenmekte
+    // transform değerleri ile konumlar belirtiliyor
+    commands.spawn((
+        SpriteBundle {
+            texture: enemy_a_texture.clone(),
+            transform: Transform::from_xyz(0. - h_margin, 0., 0.),
+            ..default()
+        },
+        SnapToPlayer,
+    ));
+    commands.spawn((
+        SpriteBundle {
+            texture: enemy_a_texture,
+            transform: Transform::from_xyz(0., 0. - v_margin, 0.),
+            ..default()
+        },
+        SnapToPlayer,
+    ));
+
+    // RotateToPlayer'a verilen radyan değerleri ile,
+    // kaç derecelik bir dönüş uygulanacağını belirtiyoruz
+    // Buna göre yüzü oyuncuya dönük olacak şekilde düşman gemileri eklenmiş oluyor
+    commands.spawn((
+        SpriteBundle {
+            texture: enemy_b_texture.clone(),
+            transform: Transform::from_xyz(0. + h_margin, 0., 0.),
+            ..default()
+        },
+        RotateToPlayer { vel: PI / 4. },
+    ));
+    commands.spawn((
+        SpriteBundle {
+            texture: enemy_b_texture,
+            transform: Transform::from_xyz(0., 0. + v_margin, 0.),
+            ..default()
+        },
+        RotateToPlayer { vel: PI / 2. },
     ));
 }
