@@ -2,5 +2,6 @@
 
 Bevy oyun motorunu öğrenmek için açılmış alandır.
 
-- [ ] **01 rotating:**
-- [x] **00 hello_bevy:** Bevy resmi sitesindeki başlangıç öğretisi.
+- [ ] **s02_movements:** 01deki örnekten yola çıkarak sadece hareket sistemini tekrar ettiğim pratik.
+- [x] **s01_rotating:** Bevy resmi sitesindeki 2D Rotation isimli örneği uyguladım. Ekrana entity yerleştirme ve hareket, döndürme gibi matematiksel operasyonların uygulandığı sistemlerin nasıl yazıldığına baktım.
+- [x] **s00_hello_bevy:** Bevy resmi sitesindeki başlangıç öğretisi.
