@@ -15,7 +15,9 @@ fn main() {
         .add_system_set(
             SystemSet::new()
                 .with_run_criteria(FixedTimestep::step(DELTA_TIME as f64))
-                .with_system(fighter_movement_system),
+                .with_system(fighter_movement_system)
+                .with_system(missile_flight_system)
+                .with_system(fighter_fire_system),
         )
         .add_system(close_on_esc)
         .run();
@@ -25,6 +27,11 @@ fn main() {
 struct Fighter {
     movement_speed: f32,
     rotation_speed: f32,
+}
+
+#[derive(Component, Copy, Clone)]
+struct Missile {
+    movement_speed: f32,
 }
 
 fn setup_system(mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -40,7 +47,7 @@ fn setup_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         },
         Fighter {
-            movement_speed: 500.,
+            movement_speed: 400.,
             rotation_speed: 2. * PI,
         },
     ));
@@ -51,6 +58,7 @@ fn fighter_movement_system(
     mut query: Query<(&Fighter, &mut Transform)>,
 ) {
     let (fighter, mut transform) = query.single_mut();
+
     let mut rotation_factor = 0.;
     let mut movement_factor = 0.;
 
@@ -74,4 +82,54 @@ fn fighter_movement_system(
 
     let range = Vec3::from((BOUNDS / 2.0, 0.));
     transform.translation = transform.translation.min(range).max(-range);
+}
+
+fn fighter_fire_system(
+    mut commands: Commands,
+    keyboard_input: Res<Input<KeyCode>>,
+    asset_server: Res<AssetServer>,
+    mut query: Query<(&Fighter, &mut Transform)>,
+) {
+    let (_, mut transform) = query.single_mut();
+
+    if keyboard_input.just_pressed(KeyCode::Space) {
+        let translation = transform.translation;
+        let rotation = transform.rotation;
+
+        commands.spawn((
+            SpriteBundle {
+                texture: asset_server.load("missile.png"),
+                transform: Transform {
+                    translation,
+                    rotation,
+                    ..default()
+                },
+                ..default()
+            },
+            Missile {
+                movement_speed: 600.,
+            },
+        ));
+    }
+}
+
+fn missile_flight_system(
+    mut commands: Commands,
+    mut query: Query<(Entity, &Missile, &mut Transform), With<Missile>>,
+) {
+    for (missile_entity, &missile, mut transform) in query.iter_mut() {
+        let movement_direction = transform.rotation * Vec3::Y;
+        let movement_distance = missile.movement_speed * DELTA_TIME;
+        let translation_delta = movement_direction * movement_distance;
+        transform.translation += translation_delta;
+
+        if transform.translation.x < -1. * (BOUNDS.x / 2.)
+            || transform.translation.x > BOUNDS.x
+            || transform.translation.y < -1. * (BOUNDS.y / 2.)
+            || transform.translation.y > BOUNDS.y
+        {
+            info!("{:?}", transform.translation);
+            commands.entity(missile_entity).despawn();
+        }
+    }
 }
