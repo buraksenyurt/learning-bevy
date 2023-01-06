@@ -4,14 +4,15 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup_system)
+        .add_system(square_scale_system)
         .run();
 }
 
 #[derive(Component)]
-struct SomeSquare;
+struct Square;
 
 fn setup_system(
-    mut commands: Commands
+    mut commands: Commands,
 ) {
     commands.spawn(Camera2dBundle::default());
 
@@ -28,6 +29,19 @@ fn setup_system(
             },
             ..default()
         },
-        SomeSquare,
+        Square,
     ));
+}
+
+fn square_scale_system(
+    keyboard_input: Res<Input<KeyCode>>,
+    mut query: Query<(&Square, &mut Transform)>,
+) {
+    for (_, mut tr) in query.iter_mut() {
+        if keyboard_input.pressed(KeyCode::Up) {
+            tr.scale += 0.05;
+        } else if keyboard_input.pressed(KeyCode::Down) {
+            tr.scale -= 0.05;
+        }
+    }
 }
